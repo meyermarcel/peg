@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"text/template"
 	"time"
@@ -97,11 +98,11 @@ func buildinfo() {
 		}
 	}
 
-	cmit, err := exec.Command("git", "rev-parse", "HEAD").Output()
-	if err != nil {
-		log.Println("error:", err)
+	cmit := vcsCommit()
+	if cmit == "" {
+		log.Println("error: empty commit from vcs.revision")
 	}
-	inf.Commit = strings.TrimSuffix(string(cmit), "\n")
+	inf.Commit = cmit
 	// slice the constant to remove the timezone specifier
 	inf.Buildtime = time.Now().UTC().Format(time.RFC3339[0:19])
 
@@ -110,6 +111,18 @@ func buildinfo() {
 		log.Println("error: template:", err)
 	}
 	log.SetPrefix("")
+}
+
+func vcsCommit() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			// See https://pkg.go.dev/runtime/debug#BuildSetting
+			if setting.Key == "vcs.revision" {
+				return setting.Value
+			}
+		}
+	}
+	return ""
 }
 
 var processed = make(map[string]bool)
